@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  library_db:
+    container_name: library_db
+    image: postgres:13.4-alpine
+    user: postgres 
+    volumes:
+      - library_pg_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres 
+      - POSTGRES_USER=postgres 
+      - POSTGRES_DB=library_db 
+    ports:
+      - 5432:5432 
+    networks:
+      - library
+
+  library_api:
+    build:
+      context: ./library_back
+      dockerfile: Dockerfile
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    container_name: library_api
+    volumes:
+      - library_api_data:/var/lib/library_api_data
+    depends_on:
+      - library_db
+    ports:
+      - 8000:8000
+    networks:
+      - library
+
+  library_front:
+    build:
+      context: ./library_front
+      dockerfile: Dockerfile
+    volumes:
+      - library_front_data:/var/lib/library_front_data
+    ports:
+      - "3000:3000"
+    depends_on:
+      - library_api
+    networks:
+      - library
+
+  library_nginx:
+    image: nginx:1.22.0-alpine
+    container_name: library_nginx
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    links:
+      - library_front
+    depends_on:
+      - library_front
+    networks:
+      - library
+
+volumes:
+  library_pg_data: 
+  library_api_data: 
+  library_front_data:
+
+networks:
+  library:
